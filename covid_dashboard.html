@@ -1,0 +1,773 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>COVID-19 Global Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,400&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+<style>
+  :root {
+    --bg: #08090c;
+    --surface: #0f1117;
+    --surface2: #161820;
+    --border: rgba(255,255,255,0.07);
+    --border2: rgba(255,255,255,0.12);
+    --text: #f0f0f2;
+    --muted: #7a7d8a;
+    --accent: #7b6cff;
+    --accent2: #c061ff;
+    --green: #2bde8e;
+    --red: #ff5c6a;
+    --amber: #ffb547;
+    --cyan: #3dd8f5;
+    --pill-bg: rgba(123,108,255,0.12);
+  }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 15px;
+    line-height: 1.65;
+    min-height: 100vh;
+  }
+
+  /* ── Noise texture overlay ── */
+  body::before {
+    content: '';
+    position: fixed; inset: 0; z-index: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
+    pointer-events: none; opacity: 0.4;
+  }
+
+  .wrapper { position: relative; z-index: 1; max-width: 1200px; margin: 0 auto; padding: 0 24px 80px; }
+
+  /* ── Header ── */
+  header {
+    padding: 56px 0 48px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 48px;
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 24px;
+    flex-wrap: wrap;
+  }
+  .header-left {}
+  .eyebrow {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .eyebrow::before {
+    content: '';
+    display: inline-block;
+    width: 6px; height: 6px;
+    background: var(--accent);
+    border-radius: 50%;
+    animation: pulse 2s infinite;
+  }
+  @keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.4;transform:scale(0.7)} }
+  h1 {
+    font-family: 'Syne', sans-serif;
+    font-size: clamp(36px, 5vw, 62px);
+    font-weight: 800;
+    line-height: 1.05;
+    letter-spacing: -0.02em;
+    background: linear-gradient(135deg, #fff 0%, #a89cff 60%, #c061ff 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin-bottom: 14px;
+  }
+  .sub {
+    color: var(--muted);
+    font-size: 15px;
+    max-width: 460px;
+    line-height: 1.7;
+  }
+  .header-badge {
+    background: var(--surface2);
+    border: 1px solid var(--border2);
+    border-radius: 14px;
+    padding: 16px 20px;
+    font-family: 'DM Mono', monospace;
+    font-size: 12px;
+    color: var(--muted);
+    white-space: nowrap;
+    flex-shrink: 0;
+    align-self: flex-start;
+    margin-top: 8px;
+  }
+  .header-badge span { color: var(--green); }
+
+  /* ── Section label ── */
+  .section-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .section-label::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+
+  /* ── Stat grid ── */
+  .stat-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 12px;
+    margin-bottom: 48px;
+  }
+  .stat-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 24px;
+    position: relative;
+    overflow: hidden;
+    transition: border-color 0.2s, transform 0.2s;
+  }
+  .stat-card:hover { border-color: var(--border2); transform: translateY(-2px); }
+  .stat-card::after {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--accent), transparent);
+    opacity: 0;
+    transition: opacity 0.3s;
+  }
+  .stat-card:hover::after { opacity: 1; }
+  .stat-label {
+    font-size: 11px;
+    font-family: 'DM Mono', monospace;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 10px;
+  }
+  .stat-value {
+    font-family: 'Syne', sans-serif;
+    font-size: 30px;
+    font-weight: 700;
+    line-height: 1;
+    margin-bottom: 6px;
+  }
+  .stat-sub { font-size: 12px; color: var(--muted); }
+  .c-purple { color: var(--accent); }
+  .c-red    { color: var(--red); }
+  .c-green  { color: var(--green); }
+  .c-amber  { color: var(--amber); }
+  .c-cyan   { color: var(--cyan); }
+
+  /* ── Two column layout ── */
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 48px; }
+  @media(max-width:720px) { .two-col { grid-template-columns: 1fr; } }
+
+  /* ── Ranked list card ── */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 28px;
+    overflow: hidden;
+  }
+  .card-title {
+    font-family: 'Syne', sans-serif;
+    font-size: 17px;
+    font-weight: 700;
+    margin-bottom: 6px;
+    letter-spacing: -0.01em;
+  }
+  .card-desc { font-size: 12px; color: var(--muted); margin-bottom: 24px; line-height: 1.5; }
+
+  .rank-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 11px 0;
+    border-bottom: 1px solid var(--border);
+    transition: background 0.15s;
+  }
+  .rank-row:last-child { border-bottom: none; padding-bottom: 0; }
+  .rank-num {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+    width: 18px;
+    flex-shrink: 0;
+  }
+  .rank-name {
+    flex: 1;
+    font-size: 14px;
+    font-weight: 500;
+  }
+  .rank-bar-wrap { flex: 1; height: 4px; background: rgba(255,255,255,0.06); border-radius: 4px; overflow: hidden; }
+  .rank-bar { height: 100%; border-radius: 4px; }
+  .rank-val {
+    font-family: 'DM Mono', monospace;
+    font-size: 12px;
+    color: var(--muted);
+    white-space: nowrap;
+    min-width: 56px;
+    text-align: right;
+  }
+  .flag { font-size: 16px; flex-shrink: 0; }
+
+  /* ── Continent hexgrid ── */
+  .cont-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    margin-bottom: 48px;
+  }
+  @media(max-width:600px) { .cont-grid { grid-template-columns: 1fr 1fr; } }
+  .cont-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 20px;
+    transition: border-color 0.2s;
+  }
+  .cont-card:hover { border-color: var(--border2); }
+  .cont-name { font-family: 'Syne', sans-serif; font-size: 14px; font-weight: 700; margin-bottom: 12px; }
+  .cont-row { display: flex; justify-content: space-between; margin-bottom: 5px; }
+  .cont-key { font-size: 11px; color: var(--muted); }
+  .cont-v { font-family: 'DM Mono', monospace; font-size: 12px; font-weight: 500; }
+  .cont-cfr-bar { height: 3px; background: rgba(255,255,255,0.06); border-radius: 3px; margin-top: 10px; overflow: hidden; }
+  .cont-cfr-fill { height: 100%; border-radius: 3px; }
+
+  /* ── Insights ── */
+  .insights-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 14px;
+    margin-bottom: 48px;
+  }
+  .insight-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 18px;
+    padding: 24px;
+    display: flex;
+    gap: 16px;
+    align-items: flex-start;
+    transition: border-color 0.2s;
+  }
+  .insight-card:hover { border-color: var(--border2); }
+  .insight-icon {
+    width: 40px; height: 40px;
+    border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px;
+    flex-shrink: 0;
+  }
+  .insight-body {}
+  .insight-title { font-family: 'Syne', sans-serif; font-weight: 700; font-size: 14px; margin-bottom: 6px; }
+  .insight-text { font-size: 13px; color: var(--muted); line-height: 1.65; }
+  .pill {
+    display: inline-block;
+    background: var(--pill-bg);
+    color: var(--accent);
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    padding: 2px 8px;
+    border-radius: 6px;
+    margin-top: 8px;
+  }
+  .pill.green { background: rgba(43,222,142,0.1); color: var(--green); }
+  .pill.red   { background: rgba(255,92,106,0.1); color: var(--red); }
+  .pill.amber { background: rgba(255,181,71,0.1); color: var(--amber); }
+  .pill.cyan  { background: rgba(61,216,245,0.1); color: var(--cyan); }
+
+  /* ── India spotlight ── */
+  .spotlight {
+    background: linear-gradient(135deg, #0f1117 0%, #12101e 100%);
+    border: 1px solid rgba(123,108,255,0.25);
+    border-radius: 20px;
+    padding: 32px;
+    margin-bottom: 48px;
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 32px;
+    align-items: center;
+  }
+  @media(max-width:600px){ .spotlight { grid-template-columns: 1fr; } }
+  .spotlight-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 10px;
+  }
+  .spotlight-title { font-family: 'Syne', sans-serif; font-size: 26px; font-weight: 800; margin-bottom: 14px; }
+  .spotlight-text { font-size: 14px; color: var(--muted); line-height: 1.7; max-width: 500px; }
+  .spotlight-stats { display: flex; gap: 32px; flex-wrap: wrap; }
+  .sp-stat { text-align: center; }
+  .sp-val { font-family: 'Syne', sans-serif; font-size: 28px; font-weight: 700; line-height: 1; }
+  .sp-key { font-family: 'DM Mono', monospace; font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); margin-top: 5px; }
+
+  /* ── Vaccine progress ── */
+  .vacc-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; margin-bottom: 48px; }
+  .vacc-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 18px 20px;
+  }
+  .vacc-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+  .vacc-country { font-size: 14px; font-weight: 500; }
+  .vacc-pct { font-family: 'Syne', sans-serif; font-size: 20px; font-weight: 700; }
+  .vacc-bar { height: 5px; background: rgba(255,255,255,0.06); border-radius: 5px; overflow: hidden; }
+  .vacc-fill { height: 100%; border-radius: 5px; }
+
+  /* ── Footer ── */
+  footer {
+    border-top: 1px solid var(--border);
+    padding-top: 28px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+  footer p { font-size: 12px; color: var(--muted); }
+  .dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--green); margin-right: 6px; }
+</style>
+</head>
+<body>
+<div class="wrapper">
+
+  <!-- ── HEADER ── -->
+  <header>
+    <div class="header-left">
+      <div class="eyebrow">Live Analysis &nbsp;·&nbsp; Global Data</div>
+      <h1>COVID-19<br/>Global Pulse</h1>
+      <p class="sub">A cleaned & structured breakdown of worldwide pandemic data — cases, deaths, vaccinations, and regional patterns across 200+ countries.</p>
+    </div>
+    <div class="header-badge">
+      Dataset: <span>591,523 rows</span><br/>
+      Countries: <span>200+</span><br/>
+      Source: <span>Our World in Data</span>
+    </div>
+  </header>
+
+  <!-- ── GLOBAL STATS ── -->
+  <div class="section-label">Global overview</div>
+  <div class="stat-grid">
+    <div class="stat-card">
+      <div class="stat-label">Total Cases</div>
+      <div class="stat-value c-purple">779M</div>
+      <div class="stat-sub">Worldwide confirmed infections</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Total Deaths</div>
+      <div class="stat-value c-red">7.1M</div>
+      <div class="stat-sub">Global fatality count</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Fully Vaccinated</div>
+      <div class="stat-value c-green">5.2B</div>
+      <div class="stat-sub">People with complete vaccine doses</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Avg Case Fatality</div>
+      <div class="stat-value c-amber">0.85%</div>
+      <div class="stat-sub">Median CFR across all countries</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Hardest Hit Region</div>
+      <div class="stat-value c-cyan" style="font-size:22px;">S. America</div>
+      <div class="stat-sub">Highest CFR at 1.96%</div>
+    </div>
+  </div>
+
+  <!-- ── TOP 10 + DEATHS ── -->
+  <div class="two-col">
+    <!-- Top 10 by cases -->
+    <div class="card">
+      <div class="card-title">Top 10 — Total Cases</div>
+      <div class="card-desc">Countries ranked by cumulative confirmed infections</div>
+
+      <div class="rank-row">
+        <span class="rank-num">01</span>
+        <span class="flag">🇺🇸</span>
+        <span class="rank-name">United States</span>
+        <div class="rank-bar-wrap"><div class="rank-bar" style="width:100%;background:var(--accent)"></div></div>
+        <span class="rank-val">103.4M</span>
+      </div>
+      <div class="rank-row">
+        <span class="rank-num">02</span>
+        <span class="flag">🇨🇳</span>
+        <span class="rank-name">China</span>
+        <div class="rank-bar-wrap"><div class="rank-bar" style="width:96%;background:var(--accent2)"></div></div>
+        <span class="rank-val">99.4M</span>
+      </div>
+      <div class="rank-row">
+        <span class="rank-num">03</span>
+        <span class="flag">🇮🇳</span>
+        <span class="rank-name">India</span>
+        <div class="rank-bar-wrap"><div class="rank-bar" style="width:43%;background:var(--cyan)"></div></div>
+        <span class="rank-val">45.1M</span>
+      </div>
+      <div class="rank-row">
+        <span class="rank-num">04</span>
+        <span class="flag">🇫🇷</span>
+        <span class="rank-name">France</span>
+        <div class="rank-bar-wrap"><div class="rank-bar" style="width:37%;background:var(--green)"></div></div>
+        <span class="rank-val">39.1M</span>
+      </div>
+      <div class="rank-row">
+        <span class="rank-num">05</span>
+        <span class="flag">🇩🇪</span>
+        <span class="rank-name">Germany</span>
+        <div class="rank-bar-wrap"><div class="rank-bar" style="width:37%;background:var(--green)"></div></div>
+        <span class="rank-val">38.4M</span>
+      </div>
+      <div class="rank-row">
+        <span class="rank-num">06</span>
+        <span class="flag">🇧🇷</span>
+        <span class="rank-name">Brazil</span>
+        <div class="rank-bar-wrap"><div class="rank-bar" style="width:36%;background:var(--amber)"></div></div>
+        <span class="rank-val">38.0M</span>
+      </div>
+      <div class="rank-row">
+        <span class="rank-num">07</span>
+        <span class="flag">🇰🇷</span>
+        <span class="rank-name">South Korea</span>
+        <div class="rank-bar-wrap"><div class="rank-bar" style="width:33%;background:var(--amber)"></div></div>
+        <span class="rank-val">34.6M</span>
+      </div>
+      <div class="rank-row">
+        <span class="rank-num">08</span>
+        <span class="flag">🇯🇵</span>
+        <span class="rank-name">Japan</span>
+        <div class="rank-bar-wrap"><div class="rank-bar" style="width:32%;background:var(--amber)"></div></div>
+        <span class="rank-val">33.8M</span>
+      </div>
+      <div class="rank-row">
+        <span class="rank-num">09</span>
+        <span class="flag">🇮🇹</span>
+        <span class="rank-name">Italy</span>
+        <div class="rank-bar-wrap"><div class="rank-bar" style="width:26%;background:var(--red)"></div></div>
+        <span class="rank-val">27.0M</span>
+      </div>
+      <div class="rank-row">
+        <span class="rank-num">10</span>
+        <span class="flag">🇬🇧</span>
+        <span class="rank-name">United Kingdom</span>
+        <div class="rank-bar-wrap"><div class="rank-bar" style="width:24%;background:var(--red)"></div></div>
+        <span class="rank-val">25.1M</span>
+      </div>
+    </div>
+
+    <!-- Case Fatality Rate -->
+    <div class="card">
+      <div class="card-title">Case Fatality Rate</div>
+      <div class="card-desc">Deaths as % of confirmed cases — lower is better</div>
+
+      <div class="rank-row">
+        <span class="rank-num">01</span>
+        <span class="flag">🇧🇷</span>
+        <span class="rank-name">Brazil</span>
+        <div class="rank-bar-wrap"><div class="rank-bar" style="width:100%;background:var(--red)"></div></div>
+        <span class="rank-val c-red">1.85%</span>
+      </div>
+      <div class="rank-row">
+        <span class="rank-num">02</span>
+        <span class="flag">🇺🇸</span>
+        <span class="rank-name">United States</span>
+        <div class="rank-bar-wrap"><div class="rank-bar" style="width:65%;background:var(--red)"></div></div>
+        <span class="rank-val c-red">1.20%</span>
+      </div>
+      <div class="rank-row">
+        <span class="rank-num">03</span>
+        <span class="flag">🇮🇳</span>
+        <span class="rank-name">India</span>
+        <div class="rank-bar-wrap"><div class="rank-bar" style="width:64%;background:var(--amber)"></div></div>
+        <span class="rank-val c-amber">1.18%</span>
+      </div>
+      <div class="rank-row">
+        <span class="rank-num">04</span>
+        <span class="flag">🇬🇧</span>
+        <span class="rank-name">United Kingdom</span>
+        <div class="rank-bar-wrap"><div class="rank-bar" style="width:50%;background:var(--amber)"></div></div>
+        <span class="rank-val c-amber">0.92%</span>
+      </div>
+      <div class="rank-row">
+        <span class="rank-num">05</span>
+        <span class="flag">🇮🇹</span>
+        <span class="rank-name">Italy</span>
+        <div class="rank-bar-wrap"><div class="rank-bar" style="width:40%;background:var(--amber)"></div></div>
+        <span class="rank-val c-amber">0.74%</span>
+      </div>
+      <div class="rank-row">
+        <span class="rank-num">06</span>
+        <span class="flag">🇩🇪</span>
+        <span class="rank-name">Germany</span>
+        <div class="rank-bar-wrap"><div class="rank-bar" style="width:25%;background:var(--green)"></div></div>
+        <span class="rank-val c-green">0.46%</span>
+      </div>
+      <div class="rank-row">
+        <span class="rank-num">07</span>
+        <span class="flag">🇫🇷</span>
+        <span class="rank-name">France</span>
+        <div class="rank-bar-wrap"><div class="rank-bar" style="width:23%;background:var(--green)"></div></div>
+        <span class="rank-val c-green">0.43%</span>
+      </div>
+      <div class="rank-row">
+        <span class="rank-num">08</span>
+        <span class="flag">🇯🇵</span>
+        <span class="rank-name">Japan</span>
+        <div class="rank-bar-wrap"><div class="rank-bar" style="width:12%;background:var(--green)"></div></div>
+        <span class="rank-val c-green">0.22%</span>
+      </div>
+      <div class="rank-row">
+        <span class="rank-num">09</span>
+        <span class="flag">🇨🇳</span>
+        <span class="rank-name">China</span>
+        <div class="rank-bar-wrap"><div class="rank-bar" style="width:7%;background:var(--cyan)"></div></div>
+        <span class="rank-val c-cyan">0.12%</span>
+      </div>
+      <div class="rank-row">
+        <span class="rank-num">10</span>
+        <span class="flag">🇰🇷</span>
+        <span class="rank-name">South Korea</span>
+        <div class="rank-bar-wrap"><div class="rank-bar" style="width:5%;background:var(--cyan)"></div></div>
+        <span class="rank-val c-cyan">0.10%</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── CONTINENT BREAKDOWN ── -->
+  <div class="section-label">Continent breakdown</div>
+  <div class="cont-grid">
+    <div class="cont-card">
+      <div class="cont-name">🌍 Africa</div>
+      <div class="cont-row"><span class="cont-key">Cases</span><span class="cont-v">8.97M</span></div>
+      <div class="cont-row"><span class="cont-key">Deaths</span><span class="cont-v c-red">155K</span></div>
+      <div class="cont-row"><span class="cont-key">CFR</span><span class="cont-v c-red">1.73%</span></div>
+      <div class="cont-cfr-bar"><div class="cont-cfr-fill" style="width:88%;background:var(--red)"></div></div>
+    </div>
+    <div class="cont-card">
+      <div class="cont-name">🌏 Asia</div>
+      <div class="cont-row"><span class="cont-key">Cases</span><span class="cont-v c-purple">302M</span></div>
+      <div class="cont-row"><span class="cont-key">Deaths</span><span class="cont-v c-amber">1.64M</span></div>
+      <div class="cont-row"><span class="cont-key">CFR</span><span class="cont-v c-green">0.54%</span></div>
+      <div class="cont-cfr-bar"><div class="cont-cfr-fill" style="width:28%;background:var(--green)"></div></div>
+    </div>
+    <div class="cont-card">
+      <div class="cont-name">🌍 Europe</div>
+      <div class="cont-row"><span class="cont-key">Cases</span><span class="cont-v c-cyan">254M</span></div>
+      <div class="cont-row"><span class="cont-key">Deaths</span><span class="cont-v c-amber">2.11M</span></div>
+      <div class="cont-row"><span class="cont-key">CFR</span><span class="cont-v c-amber">0.83%</span></div>
+      <div class="cont-cfr-bar"><div class="cont-cfr-fill" style="width:43%;background:var(--amber)"></div></div>
+    </div>
+    <div class="cont-card">
+      <div class="cont-name">🌎 North America</div>
+      <div class="cont-row"><span class="cont-key">Cases</span><span class="cont-v">124M</span></div>
+      <div class="cont-row"><span class="cont-key">Deaths</span><span class="cont-v c-red">1.72M</span></div>
+      <div class="cont-row"><span class="cont-key">CFR</span><span class="cont-v c-red">1.38%</span></div>
+      <div class="cont-cfr-bar"><div class="cont-cfr-fill" style="width:71%;background:var(--red)"></div></div>
+    </div>
+    <div class="cont-card">
+      <div class="cont-name">🌏 Oceania</div>
+      <div class="cont-row"><span class="cont-key">Cases</span><span class="cont-v">15.0M</span></div>
+      <div class="cont-row"><span class="cont-key">Deaths</span><span class="cont-v c-green">33K</span></div>
+      <div class="cont-row"><span class="cont-key">CFR</span><span class="cont-v c-cyan">0.22%</span></div>
+      <div class="cont-cfr-bar"><div class="cont-cfr-fill" style="width:11%;background:var(--cyan)"></div></div>
+    </div>
+    <div class="cont-card">
+      <div class="cont-name">🌎 South America</div>
+      <div class="cont-row"><span class="cont-key">Cases</span><span class="cont-v">69.4M</span></div>
+      <div class="cont-row"><span class="cont-key">Deaths</span><span class="cont-v c-red">1.36M</span></div>
+      <div class="cont-row"><span class="cont-key">CFR</span><span class="cont-v c-red">1.96%</span></div>
+      <div class="cont-cfr-bar"><div class="cont-cfr-fill" style="width:100%;background:var(--red)"></div></div>
+    </div>
+  </div>
+
+  <!-- ── INDIA SPOTLIGHT ── -->
+  <div class="section-label">Country spotlight</div>
+  <div class="spotlight">
+    <div>
+      <div class="spotlight-label">🇮🇳 India — Deep Dive</div>
+      <div class="spotlight-title">World's 3rd Highest<br/>Infection Count</div>
+      <p class="spotlight-text">Despite having the world's largest population, India's case fatality rate of 1.18% sits close to the global median. The country mounted one of the largest vaccination drives in history — nearly 952 million people fully vaccinated — covering ~67% of its massive 1.4 billion population. Cases per million remain comparatively low at 31,609, suggesting significant undercounting or strong natural immunity in rural areas.</p>
+    </div>
+    <div class="spotlight-stats">
+      <div class="sp-stat">
+        <div class="sp-val c-purple">45M</div>
+        <div class="sp-key">Total Cases</div>
+      </div>
+      <div class="sp-stat">
+        <div class="sp-val c-red">534K</div>
+        <div class="sp-key">Deaths</div>
+      </div>
+      <div class="sp-stat">
+        <div class="sp-val c-green">952M</div>
+        <div class="sp-key">Fully Vacc.</div>
+      </div>
+      <div class="sp-stat">
+        <div class="sp-val c-amber">1.18%</div>
+        <div class="sp-key">CFR</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── VACCINE COVERAGE ── -->
+  <div class="section-label">Vaccination coverage — fully vaccinated %</div>
+  <div class="vacc-grid">
+    <div class="vacc-card">
+      <div class="vacc-top">
+        <span class="vacc-country">🇨🇳 China</span>
+        <span class="vacc-pct c-green">90.1%</span>
+      </div>
+      <div class="vacc-bar"><div class="vacc-fill" style="width:90.1%;background:var(--green)"></div></div>
+    </div>
+    <div class="vacc-card">
+      <div class="vacc-top">
+        <span class="vacc-country">🇰🇷 South Korea</span>
+        <span class="vacc-pct c-green">85.6%</span>
+      </div>
+      <div class="vacc-bar"><div class="vacc-fill" style="width:85.6%;background:var(--green)"></div></div>
+    </div>
+    <div class="vacc-card">
+      <div class="vacc-top">
+        <span class="vacc-country">🇧🇷 Brazil</span>
+        <span class="vacc-pct c-green">83.8%</span>
+      </div>
+      <div class="vacc-bar"><div class="vacc-fill" style="width:83.8%;background:var(--green)"></div></div>
+    </div>
+    <div class="vacc-card">
+      <div class="vacc-top">
+        <span class="vacc-country">🇯🇵 Japan</span>
+        <span class="vacc-pct c-green">82.8%</span>
+      </div>
+      <div class="vacc-bar"><div class="vacc-fill" style="width:82.8%;background:var(--green)"></div></div>
+    </div>
+    <div class="vacc-card">
+      <div class="vacc-top">
+        <span class="vacc-country">🇮🇹 Italy</span>
+        <span class="vacc-pct c-green">83.0%</span>
+      </div>
+      <div class="vacc-bar"><div class="vacc-fill" style="width:83%;background:var(--green)"></div></div>
+    </div>
+    <div class="vacc-card">
+      <div class="vacc-top">
+        <span class="vacc-country">🇫🇷 France</span>
+        <span class="vacc-pct c-cyan">80.3%</span>
+      </div>
+      <div class="vacc-bar"><div class="vacc-fill" style="width:80.3%;background:var(--cyan)"></div></div>
+    </div>
+    <div class="vacc-card">
+      <div class="vacc-top">
+        <span class="vacc-country">🇩🇪 Germany</span>
+        <span class="vacc-pct c-cyan">75.6%</span>
+      </div>
+      <div class="vacc-bar"><div class="vacc-fill" style="width:75.6%;background:var(--cyan)"></div></div>
+    </div>
+    <div class="vacc-card">
+      <div class="vacc-top">
+        <span class="vacc-country">🇬🇧 United Kingdom</span>
+        <span class="vacc-pct c-cyan">74.4%</span>
+      </div>
+      <div class="vacc-bar"><div class="vacc-fill" style="width:74.4%;background:var(--cyan)"></div></div>
+    </div>
+    <div class="vacc-card">
+      <div class="vacc-top">
+        <span class="vacc-country">🇮🇳 India</span>
+        <span class="vacc-pct c-amber">66.8%</span>
+      </div>
+      <div class="vacc-bar"><div class="vacc-fill" style="width:66.8%;background:var(--amber)"></div></div>
+    </div>
+    <div class="vacc-card">
+      <div class="vacc-top">
+        <span class="vacc-country">🇺🇸 United States</span>
+        <span class="vacc-pct c-amber">67.5%</span>
+      </div>
+      <div class="vacc-bar"><div class="vacc-fill" style="width:67.5%;background:var(--amber)"></div></div>
+    </div>
+  </div>
+
+  <!-- ── KEY INSIGHTS ── -->
+  <div class="section-label">Key insights from the data</div>
+  <div class="insights-grid">
+
+    <div class="insight-card">
+      <div class="insight-icon" style="background:rgba(123,108,255,0.15)">🧬</div>
+      <div class="insight-body">
+        <div class="insight-title">East Asia contained spread better</div>
+        <div class="insight-text">South Korea and Japan — despite having cases in the tens of millions — recorded CFRs of just 0.10% and 0.22%, far below the global median. Strong public health culture, masking compliance, and rapid test-trace-isolate systems likely drove this outcome.</div>
+        <span class="pill cyan">CFR &lt; 0.25%</span>
+      </div>
+    </div>
+
+    <div class="insight-card">
+      <div class="insight-icon" style="background:rgba(255,92,106,0.12)">📉</div>
+      <div class="insight-body">
+        <div class="insight-title">South America had the highest mortality burden</div>
+        <div class="insight-text">With a regional CFR of 1.96% — nearly double the global median — South America bore a disproportionate death toll. Brazil alone recorded 704K deaths from 38M cases, driven by healthcare system strain and delays in vaccine rollout during the Delta wave.</div>
+        <span class="pill red">CFR 1.96% regional avg</span>
+      </div>
+    </div>
+
+    <div class="insight-card">
+      <div class="insight-icon" style="background:rgba(43,222,142,0.12)">💉</div>
+      <div class="insight-body">
+        <div class="insight-title">Higher vaccination ≠ lower case count</div>
+        <div class="insight-text">China (90% vacc.) and France (80%) still recorded ~100M and ~39M cases respectively. Vaccines reduced severity and death but didn't eliminate transmission — especially against Omicron variants. Oceania, with low CFR of 0.22%, benefited from late wave timing and high coverage.</div>
+        <span class="pill green">Mortality reduction confirmed</span>
+      </div>
+    </div>
+
+    <div class="insight-card">
+      <div class="insight-icon" style="background:rgba(61,216,245,0.12)">🌍</div>
+      <div class="insight-body">
+        <div class="insight-title">Africa's numbers likely undercounted</div>
+        <div class="insight-text">Africa reported only 8.97M cases — just 1.15% of global total — despite housing 18% of the world's population. Limited testing infrastructure, younger demographics, and under-reporting suggest the true burden was substantially higher than official counts indicate.</div>
+        <span class="pill cyan">Severe data gap</span>
+      </div>
+    </div>
+
+    <div class="insight-card">
+      <div class="insight-icon" style="background:rgba(255,181,71,0.12)">⚡</div>
+      <div class="insight-body">
+        <div class="insight-title">High-income countries had 3× more cases per capita</div>
+        <div class="insight-text">Wealthier nations had better testing infrastructure, which inflated case numbers. But they also had superior medical access, which kept CFRs lower. The US (1.2% CFR) vs. Brazil (1.85%) shows how healthcare capacity and timing of vaccine access drove mortality divergence even among high-case countries.</div>
+        <span class="pill amber">Infrastructure gap matters</span>
+      </div>
+    </div>
+
+    <div class="insight-card">
+      <div class="insight-icon" style="background:rgba(192,97,255,0.12)">🇮🇳</div>
+      <div class="insight-body">
+        <div class="insight-title">India ran the world's largest vaccine campaign</div>
+        <div class="insight-text">India administered doses to 952 million people — more than the entire population of any country except China. This unprecedented logistical achievement in a developing nation, using indigenously developed vaccines like Covaxin, set a global benchmark for mass immunisation at scale.</div>
+        <span class="pill">952M people vaccinated</span>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ── FOOTER ── -->
+  <footer>
+    <p><span class="dot"></span>Data sourced from Our World in Data · COVID-19 Dataset</p>
+    <p style="font-family:'DM Mono',monospace;font-size:11px;">Built from 591,523 cleaned records &nbsp;·&nbsp; covid_dashboard.html</p>
+  </footer>
+
+</div>
+</body>
+</html>
